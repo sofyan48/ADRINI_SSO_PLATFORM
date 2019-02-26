@@ -1,6 +1,7 @@
 from . import configs
 from flask import Flask
 from flask_oauthlib.client import OAuth
+from flask_redis import FlaskRedis
 import os, psycopg2
 
 
@@ -8,6 +9,8 @@ root_dir = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__)
 app.config.from_object(configs.Config)
 app.secret_key = os.getenv("SECRET_KEY")
+
+redis_store = FlaskRedis(app)
 
 oauth = OAuth(app)
 google = oauth.remote_app(
