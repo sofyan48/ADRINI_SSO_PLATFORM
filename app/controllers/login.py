@@ -4,6 +4,7 @@ from flask import session, redirect, url_for, request, jsonify
 from app.libs import utils
 from app.models import model
 from app.helper import oauth
+from app.helper.rest import response
 import os, dill
 
 
@@ -57,8 +58,7 @@ def authorized(resp):
         "email": req['email'],
         "expires": expires_in
     }
-    result = jsonify(data_result)
-    return result
+    return response(200, data=data_result)
 
 
 @app.route('/facebook')
@@ -130,8 +130,7 @@ def github_authorized():
         "email": req['email'],
         "expires": 3600
     }
-    result = jsonify(data_result)
-    return result
+    return response(200, data=data_result)
 
 @oauth.github.tokengetter
 def get_github_oauth_token():
@@ -147,7 +146,6 @@ def tweet():
 def logout():
     session.pop('twitter_oauth', None)
     return redirect(url_for('index'))
-
 
 @app.route(str(os.getenv('REDIRECT_URI_TWITTER')))
 def tweet_oauthorized():
