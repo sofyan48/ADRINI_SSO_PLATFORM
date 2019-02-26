@@ -1,18 +1,19 @@
-from app import app, google, redis_store
+from app import app, redis_store, OAuthException
 from flask import render_template
 from flask import session, redirect, url_for, request, jsonify
 from app.libs import utils
 from app.models import model
+from app.helper import oauth
 import os, dill
 
 
 @app.route('/google')
 def google_login():
     callback = url_for('authorized', _external=True)
-    return google.authorize(callback=callback)
+    return oauth.google.authorize(callback=callback)
 
 @app.route(os.getenv('REDIRECT_URI'))
-@google.authorized_handler
+@oauth.google.authorized_handler
 def authorized(resp):
     access_token = resp['access_token']
     headers = {
@@ -58,3 +59,80 @@ def authorized(resp):
     }
     result = jsonify(data_result)
     return result
+
+
+@app.route('/facebook')
+def facebook():
+    callback = url_for(
+        'facebook_authorized',
+        next=request.args.get('next') or request.referrer or None,
+        _external=True
+    )
+    return oauth.facebook.authorize(callback=callback)
+
+
+
+@app.route(str(os.getenv('REDIRECT_URI_FB')))
+@oauth.facebook.authorized_handler
+def facebook_authorized(resp):
+    if resp is None:
+        return 'Access denied: reason=%s error=%s' % (
+            request.args['error_reason'],
+            request.args['error_description']
+        )
+    if isinstance(resp, OAuthException):
+        return 'Access denied: %s' % resp.message
+
+    # session['oauth_token'] = (resp['access_token'], '')
+    # me = facebook.get('/me')
+    # return str(me)
+
+@app.route('/github')
+def login():
+    return oauth.github.authorize(callback=url_for('github_authorized', _external=True))
+
+@app.route(os.getenv('REDIRECT_URI_GITHUB'))
+def github_authorized():
+    resp = oauth.github.authorized_response()
+    token = None
+    for i in resp:
+        if i == 'access_token':
+            token = resp[i]
+    req = utils.get_http('https://api.github.com/user?access_token='+token,
+                  None, None)
+    try:
+        dt_db = model.get_by_id("tb_userdata","email",req['email'])
+    except Exception as e:
+        dt_db = None
+    if not dt_db:
+        data_save = {
+            "sso_id": req['id'],
+            "first_name": req['given_name'],
+            "last_name": req['family_name'],
+            "email": req['email'],
+            "location": "",
+            "picture": req['picture']
+        }
+        try:
+            model.insert("tb_userdata", data_save)
+        except Exception as e:
+            print(e)
+        dill_object = dill.dumps(data_save)
+        redis_store.set(token, dill_object)
+        redis_store.expire(token, 3600)
+    else:
+        dill_object = dill.dumps(dt_db[0])
+        redis_store.set(token, dill_object)
+        redis_store.expire(token, 3600)
+
+    data_result = {
+        "Access-Token": token,
+        "email": req['email'],
+        "expires": 3600
+    }
+    result = jsonify(data_result)
+    return result
+
+@oauth.github.tokengetter
+def get_github_oauth_token():
+    return ""
