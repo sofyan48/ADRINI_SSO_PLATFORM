@@ -6,6 +6,7 @@ from app.helper.rest import response
 from app.models import model as db
 from app import db as dbq
 from app.middlewares.auth import get_jwt_identity, login_required
+import hashlib, uuid
 
 
 @app.route("/user/get", methods=['GET'])
@@ -87,3 +88,32 @@ def update():
         }
     finally:
         return response(200, message=message)
+
+@app.route('/user/add', methods=['POST'])
+def insert_user(self):
+    random_string = uuid.uuid4()
+    raw_token = '{}{}'.format(random_string, request.form['email'])
+    access_token = hashlib.sha256(raw_token.encode('utf-8')).hexdigest()
+
+    data_insert = {
+        "email" : request.form['email'],
+        "first_name" : request.form['first_name'],
+        "last_name" : request.form['last_name'],
+        "location" : request.form['location'],
+        "sso_id" : access_token,
+    }
+    try:
+        result = db.insert(table="tb_userdata", data=data_insert)
+    except Exception as e:
+        data = {
+            "status": False,
+            "error": str(e)
+        }
+        return response(200, message=data)
+    else:
+        data = {
+            "status": True,
+            "data": data_insert,
+            "id": result
+        }
+        return response(200, data=data)
