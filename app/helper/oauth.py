@@ -41,3 +41,13 @@ github = oauth.remote_app(
     access_token_url='https://github.com/login/oauth/access_token',
     authorize_url='https://github.com/login/oauth/authorize'
 )
+
+twitter = oauth.remote_app(
+    'twitter',
+    consumer_key=str(os.getenv('TWITTER_APP_ID')),
+    consumer_secret=str(os.getenv('TWITTER_APP_SECRET')),
+    base_url='https://api.twitter.com/1.1/',
+    request_token_url='https://api.twitter.com/oauth/request_token',
+    access_token_url='https://api.twitter.com/oauth/access_token',
+    authorize_url='https://api.twitter.com/oauth/authorize'
+)

@@ -1,5 +1,5 @@
 from app import app, redis_store, OAuthException
-from flask import render_template
+from flask import render_template, g
 from flask import session, redirect, url_for, request, jsonify
 from app.libs import utils
 from app.models import model
@@ -136,3 +136,28 @@ def github_authorized():
 @oauth.github.tokengetter
 def get_github_oauth_token():
     return ""
+
+@app.route('/twitter')
+def tweet():
+    callback_url = url_for('tweet_oauthorized', next=request.args.get('next'))
+    return oauth.twitter.authorize(callback=callback_url or request.referrer or None)
+
+
+@app.route('/logout')
+def logout():
+    session.pop('twitter_oauth', None)
+    return redirect(url_for('index'))
+
+
+@app.route(str(os.getenv('REDIRECT_URI_TWITTER')))
+def tweet_oauthorized():
+    g.access_token = None
+    resp = oauth.twitter.authorized_response()
+    access_token = resp['oauth_token']
+    g.access_token = access_token
+    a = oauth.twitter.get("lists/show.json")
+    return str(a)
+
+@oauth.twitter.tokengetter
+def get_twitter_token():
+    return g.access_token
